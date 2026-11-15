@@ -1,0 +1,43 @@
+---
+title: "A Quick Look at the Palmer Penguins"
+author: "Bilikisu"
+format:
+  html:
+    toc: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r}
+#| include: false
+library(palmerpenguins)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+n <- nrow(penguins)
+```
+
+## Introduction
+
+This dataset covers a number of penguins across three species and three islands in the Palmer Archipelago, Antarctica — state the total (`n`) with inline code, the way Section 4 did.
+
+## Bill shape by species
+
+```{r}
+#| fig.width: 6
+#| fig.height: 4
+ggplot(penguins, aes(bill_length_mm, bill_depth_mm, color = species)) +
+  geom_point(alpha = 0.8) +
+  theme_minimal()
+```
+
+## Counts by island
+
+```{r}
+penguins |> count(species, island) |> kable()
+```
+
+::: callout-note
+Gentoo penguins are only observed on Biscoe Island in this dataset.
+:::

@@ -1,0 +1,119 @@
+---
+title: "Quarto Workshop"
+execute:
+  warning: false
+  message: false
+---
+
+## Another executable cell
+
+```{r eval=FALSE}
+
+ 34*35
+```
+
+## Quarto
+
+```{r echo=FALSE}
+
+library(palmerpenguins)
+library(dplyr)
+
+penguins |>
+  count(species)
+```
+
+```{r}
+#| echo: false
+no_of_participants <- penguins |> nrow()
+no_of_participants
+```
+
+The number of penguins is `r no_of_participants` for the year 2026.
+
+The number of penguins is `r nrow(penguins)` for the year 2026.
+
+One plus two is equal to `r 1+2`
+
+```{r fig.height=5, fig.width=10}
+
+
+library(ggplot2)
+
+ggplot(penguins, aes(x = bill_length_mm, y = bill_depth_mm, color = species)) +
+  geom_point(size = 2, alpha = 0.8) +
+  labs(
+    title = "Bill dimensions by species",
+    x = "Bill length (mm)", y = "Bill depth (mm)", color = "Species"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+```{r}
+
+```
+
+```{r}
+library(kableExtra)
+penguins |>
+  count(species, island) |>
+  tidyr::pivot_wider(names_from = island, values_from = n, values_fill = 0) |>
+  kable(caption = "Penguins observed per island")
+```
+
+::: callout-note
+## My callout
+:::
+
+# MMbsdjs sdhjhs
+
+::: callout-note
+This is a note callout.
+:::
+
+::: callout-warning
+This is a warning callout.
+:::
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+[My R, Quarto, Typst Workshop](https://r-quarto-typst-workshop.netlify.app/)
+
+$$x^2 + y^2 = z^2$$
+
+```{r}
+1 + (11*100-10)
+print("My code")
+```
+
+*My italicized text*
+
+**My name is Bilikisu**
+
+***Bold and italics***
+
+**R** is a *collaborative project* with many ***contributors***. Type 'contributors()' [for more information](https://r-quarto-typst-workshop.netlify.app/) and ['citation()']{.underline} on how to cite R or ~~R packages~~ in publications.
+
+|     | Col1 | Col2 | Col3 |
+|-----|------|------|------|
+|     |      |      |      |
+|     |      |      |      |
+|     |      |      |      |
+|     |      |      |      |
+|     |      |      |      |
+
+- de dghh
+
+- mjfggg
+
+- hhfy
+
+1.  eddd byhhjk
+
+2.  vcbdd
+
+3.  ncxjfhk
+
+![](thumb_9f638155-715b-4760-93b6-43a9c0c0e0a6.png)
+
+[![My caption](thumb_9f638155-715b-4760-93b6-43a9c0c0e0a6.png){fig-alt="my image"}](https://quarto.org/)
