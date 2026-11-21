@@ -1,0 +1,36 @@
+---
+title: "8.3 Calling factbox() from R"
+format: typst
+execute:
+  echo: false
+---
+
+```{=typst}
+#let factbox(title: "Fun Fact", accent: rgb("#d65a28"), fill: rgb("#fff4e8"), body) = {
+  block(
+    width: 100%, fill: fill, stroke: (left: 3pt + accent),
+    inset: 12pt, radius: 4pt, breakable: false,
+  )[
+    #text(weight: "bold", size: 11.5pt, fill: accent)[#title]
+    #v(0.3em)
+    #body
+  ]
+}
+```
+
+```{r}
+#| include: false
+library(palmerpenguins)
+typst_raw <- function(x) {
+  cat("\n```{=typst}\n")
+  cat(x, sep = "\n")
+  cat("\n```\n")
+}
+```
+
+```{r}
+#| results: asis
+box_title <- "Key number"
+box_body  <- paste0("There are ", nrow(penguins), " penguins in the data.")
+typst_raw(sprintf('#factbox(title: "%s")[%s]', box_title, box_body))
+```

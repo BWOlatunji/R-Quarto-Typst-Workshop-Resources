@@ -1,0 +1,21 @@
+---
+title: "6.2 The set page gotcha"
+format: typst
+---
+
+Some text before the set rules, written in Markdown.
+
+```{=typst}
+#set page(margin: 1in, fill: rgb("#fdfbf5"))
+
+This text comes after the set rules.
+```
+
+<!--
+EXPECTED RESULT (two pages)
+Page 1: the title and the Markdown sentence, white, default look.
+Page 2: "This text comes after the set rules." on a cream page.
+WHY: Quarto writes the title first. Typst cannot change page settings
+halfway down a page, so it starts a new page.
+NEXT: open 6-3-using-styles.qmd for the fix.
+-->

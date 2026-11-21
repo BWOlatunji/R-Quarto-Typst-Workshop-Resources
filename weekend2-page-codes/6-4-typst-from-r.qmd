@@ -1,0 +1,27 @@
+---
+title: "6.4 Typst built from R"
+format: typst
+execute:
+  echo: false
+---
+
+````{r}
+#| results: asis
+best_animal <- "otters"
+best_count <- 41
+
+cat(sprintf('
+```{=typst}
+#rect(fill: rgb("#fff4e8"), stroke: (left: 3pt + rgb("#d65a28")), inset: 10pt, radius: 4pt)[
+  *%s* appear in *%d* titles this year, the most of any animal.
+]
+```
+', best_animal, best_count))
+````
+
+<!--
+NOTE: the chunk above is opened and closed with FOUR backticks. The string
+contains a line of three backticks; with a three-backtick chunk, Quarto would
+end the chunk there and fail with a parse error.
+LIVE DEMO: change best_count to 55 and render again.
+-->

@@ -1,0 +1,25 @@
+---
+title: "4.7c show rule without block, inside Quarto"
+format: typst
+---
+
+```{=typst}
+// NO block(...) here: this is the gotcha.
+#show heading.where(level: 2): it => {
+  text(fill: rgb("#2568c2"), weight: "bold", size: 14pt)[#it.body]
+}
+```
+
+# A section
+
+A sentence under the section heading.
+
+## A subsection
+
+A sentence under the subsection heading.
+
+<!--
+EXPECTED RESULT
+"A subsection" runs into "A sentence under the subsection heading." on the SAME line.
+FIX: wrap the text(...) line in  block(above: 1.2em, below: 0.6em)[ ... ]  and render again.
+-->

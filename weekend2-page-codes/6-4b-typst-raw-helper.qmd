@@ -1,0 +1,25 @@
+---
+title: "6.4b The typst_raw() helper"
+format: typst
+execute:
+  echo: false
+---
+
+```{r}
+#| include: false
+typst_raw <- function(x) {
+  cat("\n```{=typst}\n")
+  cat(x, sep = "\n")
+  cat("\n```\n")
+}
+best_animal <- "otters"
+best_count <- 41
+```
+
+```{r}
+#| results: asis
+typst_raw(sprintf(
+  '#rect(fill: rgb("#fff4e8"), inset: 10pt, radius: 4pt)[*%s* appear in *%d* titles.]',
+  best_animal, best_count
+))
+```

@@ -1,0 +1,12 @@
+---
+title: "6.1 A raw Typst block"
+format: typst
+---
+
+A paragraph written in ordinary Markdown.
+
+```{=typst}
+#rect(fill: rgb("#eef5fc"), inset: 10pt, radius: 6pt)[
+  This whole box is hand-written Typst, not Markdown.
+]
+```

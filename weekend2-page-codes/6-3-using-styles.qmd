@@ -1,0 +1,25 @@
+---
+title: "6.3 Using styles.typ"
+format:
+  typst:
+    keep-typ: true
+    include-in-header:
+      - file: 6-3-styles.typ
+---
+
+# A level-1 heading written in Markdown
+
+Ordinary Markdown text.
+
+```{=typst}
+#stat("62", "years, oldest title")
+#stat("4.33", "average rating")
+```
+
+<!--
+EXPECTED RESULT (one page)
+Cream from page 1, title included. The Markdown heading is orange and bold
+(the show rule in 6-3-styles.typ restyled it). stat() works in the raw block.
+TIP: keep-typ is on. Open 6-3-using-styles.typ and show that the contents of
+6-3-styles.typ sit at the very top, above the title.
+-->
