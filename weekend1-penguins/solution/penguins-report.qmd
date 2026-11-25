@@ -1,0 +1,333 @@
+---
+title: "Meet the Palmer Penguins"
+subtitle: "An exploratory data analysis with R and Quarto"
+author: "Weekend 1 Assignment · Model Solution"
+date: today
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    papersize: letter
+    fontsize: 10.5pt
+    fig-pos: "H"
+    echo: false
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+library(palmerpenguins)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+
+knitr::opts_chunk$set(fig.align = "center", fig.width = 6.5, fig.height = 4)
+
+# One consistent look for every chart
+sp_cols <- c(Adelie = "#E8663D", Chinstrap = "#4B3BB0", Gentoo = "#2774D4")
+theme_set(theme_minimal(base_size = 11) +
+            theme(legend.position = "top", plot.title = element_text(face = "bold")))
+
+# Numbers we will quote in the text (inline code, so nothing is typed by hand)
+n_total   <- nrow(penguins)
+n_species <- n_distinct(penguins$species)
+n_islands <- n_distinct(penguins$island)
+years     <- range(penguins$year)
+n_missing_sex <- sum(is.na(penguins$sex))
+n_missing_meas <- sum(!complete.cases(penguins[, c("bill_length_mm", "bill_depth_mm",
+                                                   "flipper_length_mm", "body_mass_g")]))
+
+peng <- penguins |> drop_na(bill_length_mm, bill_depth_mm, flipper_length_mm, body_mass_g)
+peng_sex <- peng |> drop_na(sex)
+```
+
+# Introduction
+
+Between `r years[1]` and `r years[2]`, researchers at Palmer Station, Antarctica, measured **`r n_total` penguins** from **`r n_species` species** living on **`r n_islands` islands**. For each bird they recorded the bill length and depth, the flipper length, the body mass and the sex.
+
+This report explores that data set from five angles:
+
+1.  Who lives where?
+2.  How do the three species differ in size and shape?
+3.  What is the relationship between flipper length and body mass?
+4.  How big is the difference between males and females?
+5.  Did anything change across the three years of the study?
+
+::: callout-note
+## About this document
+
+Every number and chart below is produced by R code inside this Quarto document. If the data changes, re-rendering the document updates the whole report. This is the *reproducible report* idea from Weekend 1.
+:::
+
+# The data
+
+```{r}
+#| label: tbl-glimpse
+#| tbl-cap: "The first six rows of the penguins data"
+penguins |> head(6) |> kable()
+```
+
+```{r}
+#| label: tbl-variables
+#| tbl-cap: "What each column means"
+tibble::tribble(
+  ~Variable, ~Meaning,
+  "species", "Adelie, Chinstrap or Gentoo",
+  "island", "Biscoe, Dream or Torgersen",
+  "bill_length_mm, bill_depth_mm", "Size of the bill (beak), in millimetres",
+  "flipper_length_mm", "Length of the flipper, in millimetres",
+  "body_mass_g", "Body mass, in grams",
+  "sex", "female or male",
+  "year", "Year of the observation (2007, 2008 or 2009)"
+) |> kable()
+```
+
+## Cleaning
+
+Not every penguin has a complete record. `r n_missing_meas` birds are missing all four body measurements and `r n_missing_sex` birds are missing their sex. We keep every row that has the measurements we need for each analysis, so the number of birds can differ slightly from one section to the next.
+
+```{r}
+#| label: tbl-missing
+#| tbl-cap: "Missing values in each column"
+tibble(column = names(penguins),
+       missing = colSums(is.na(penguins))) |>
+  filter(missing > 0) |>
+  kable(col.names = c("Column", "Missing values"))
+```
+
+# Who lives where?
+
+```{r}
+#| label: tbl-species-island
+#| tbl-cap: "Number of penguins by species and island"
+penguins |>
+  count(species, island) |>
+  pivot_wider(names_from = island, values_from = n, values_fill = 0) |>
+  mutate(Total = rowSums(across(where(is.numeric)))) |>
+  kable()
+```
+
+```{r}
+#| label: fig-island
+#| fig-cap: "Penguins counted on each island, split by species"
+ggplot(penguins, aes(island, fill = species)) +
+  geom_bar(width = 0.65) +
+  scale_fill_manual(values = sp_cols, name = NULL) +
+  labs(title = "Biscoe is the busiest island", x = NULL, y = "Number of penguins")
+```
+
+Adelie is the only species found on all three islands. Gentoo penguins are only recorded on Biscoe and Chinstrap penguins only on Dream, so for those two species the island and the species are completely tied together. This matters later: if we compared islands, we would really be comparing species.
+
+# How do the species differ?
+
+## Average size
+
+```{r}
+#| label: tbl-means
+#| tbl-cap: "Average measurements by species"
+peng |>
+  group_by(species) |>
+  summarise(Birds = n(),
+            `Bill length (mm)` = mean(bill_length_mm),
+            `Bill depth (mm)` = mean(bill_depth_mm),
+            `Flipper (mm)` = mean(flipper_length_mm),
+            `Body mass (g)` = mean(body_mass_g)) |>
+  mutate(across(where(is.double), \(x) round(x, 1))) |>
+  kable()
+```
+
+```{r}
+#| label: top-line
+#| include: false
+means <- peng |> group_by(species) |> summarise(mass = mean(body_mass_g))
+heaviest <- means$species[which.max(means$mass)]
+gap <- round(max(means$mass) - min(means$mass))
+```
+
+The **`r heaviest`** penguin is clearly the heavyweight, about `r format(gap, big.mark = ",")` g heavier on average than the lightest species. Adelie and Chinstrap penguins are almost the same weight, but they are easy to tell apart by their bills (next).
+
+## Body mass
+
+Body mass is where the species differ most clearly. Two views of the same data follow.
+
+```{r}
+#| label: fig-mass-dist
+#| fig-cap: "Distribution of body mass for each species"
+#| fig-height: 3.8
+ggplot(peng, aes(body_mass_g, fill = species)) +
+  geom_histogram(binwidth = 150, colour = "white", show.legend = FALSE) +
+  facet_wrap(~species, ncol = 1) +
+  scale_fill_manual(values = sp_cols) +
+  labs(title = "Gentoo penguins sit in a class of their own",
+       x = "Body mass (g)", y = "Number of penguins")
+```
+
+```{r}
+#| label: fig-mass-box
+#| fig-cap: "Body mass by species: the box shows the middle 50% of birds"
+#| fig-height: 3.4
+ggplot(peng, aes(species, body_mass_g, fill = species)) +
+  geom_boxplot(alpha = 0.85, width = 0.55, show.legend = FALSE) +
+  geom_jitter(width = 0.12, alpha = 0.25, size = 1, show.legend = FALSE) +
+  scale_fill_manual(values = sp_cols) +
+  labs(title = "Same story, different view", x = NULL, y = "Body mass (g)")
+```
+
+## Bill shape
+
+Bills separate the species even better than weight does.
+
+```{r}
+#| label: fig-bills
+#| fig-cap: "Bill length against bill depth. Each point is one penguin."
+#| fig-height: 4.4
+ggplot(peng, aes(bill_length_mm, bill_depth_mm, colour = species)) +
+  geom_point(size = 2, alpha = 0.7) +
+  scale_colour_manual(values = sp_cols, name = NULL) +
+  labs(title = "Three species, three clear clusters",
+       x = "Bill length (mm)", y = "Bill depth (mm)")
+```
+
+The three species form three tidy clusters. Adelie penguins have short, deep bills, Gentoo penguins have long, shallow bills, and Chinstrap penguins have long, deep bills. Knowing the bill measurements alone is almost enough to name the species.
+
+::: callout-warning
+## A trap hidden in the data
+
+Look at the same scatter plot *without* the colours, with one trend line through all the birds.
+
+```{r}
+#| label: fig-simpson
+#| fig-cap: "A single trend line through all species suggests the wrong story"
+#| fig-height: 3.6
+ggplot(peng, aes(bill_length_mm, bill_depth_mm)) +
+  geom_point(colour = "grey60", alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "black") +
+  labs(x = "Bill length (mm)", y = "Bill depth (mm)")
+```
+
+Across all birds the trend slopes **down** (correlation `r round(cor(peng$bill_length_mm, peng$bill_depth_mm), 2)`), as if longer bills meant shallower bills. Inside each species the trend actually slopes **up**. The combined line is misleading because we mixed three different groups. This is known as Simpson's paradox: always check what happens inside the groups.
+:::
+
+# Flipper length and body mass
+
+```{r}
+#| label: fig-flipper-mass
+#| fig-cap: "Flipper length against body mass, with a trend line per species"
+#| fig-height: 4.4
+ggplot(peng, aes(flipper_length_mm, body_mass_g, colour = species)) +
+  geom_point(size = 2, alpha = 0.65) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_colour_manual(values = sp_cols, name = NULL) +
+  labs(title = "Longer flippers, heavier birds",
+       x = "Flipper length (mm)", y = "Body mass (g)")
+```
+
+```{r}
+#| label: tbl-cor
+#| tbl-cap: "Correlation between flipper length and body mass"
+bind_rows(
+  tibble(Group = "All penguins", r = cor(peng$flipper_length_mm, peng$body_mass_g), n = nrow(peng)),
+  peng |> group_by(Group = as.character(species)) |>
+    summarise(r = cor(flipper_length_mm, body_mass_g), n = n())
+) |>
+  mutate(r = round(r, 2)) |>
+  kable(col.names = c("Group", "Correlation (r)", "Birds"))
+```
+
+```{r}
+#| include: false
+r_all <- round(cor(peng$flipper_length_mm, peng$body_mass_g), 2)
+```
+
+Across all penguins the correlation is **`r r_all`**, a strong positive relationship: birds with longer flippers are heavier. The relationship is weaker, though still positive, inside each species. Part of the overall strength comes from the fact that Gentoo penguins are both bigger and longer-flippered than the other two.
+
+# Males and females
+
+```{r}
+#| label: tbl-sex
+#| tbl-cap: "Average body mass (g) by species and sex, with the male-to-female ratio"
+peng_sex |>
+  group_by(species, sex) |>
+  summarise(mass = mean(body_mass_g), .groups = "drop") |>
+  pivot_wider(names_from = sex, values_from = mass) |>
+  mutate(`Male / female` = round(male / female, 2),
+         across(c(female, male), \(x) round(x))) |>
+  kable()
+```
+
+```{r}
+#| label: fig-sex
+#| fig-cap: "Body mass of females and males in each species"
+#| fig-height: 3.8
+ggplot(peng_sex, aes(species, body_mass_g, fill = sex)) +
+  geom_boxplot(width = 0.65, alpha = 0.9) +
+  scale_fill_manual(values = c(female = "#E87BA4", male = "#2774D4"), name = NULL) +
+  labs(title = "Males are heavier in every species", x = NULL, y = "Body mass (g)")
+```
+
+```{r}
+#| include: false
+ratio <- peng_sex |> group_by(species, sex) |> summarise(m = mean(body_mass_g), .groups = "drop") |>
+  pivot_wider(names_from = sex, values_from = m) |> mutate(r = male / female)
+big <- ratio$species[which.max(ratio$r)]
+```
+
+In all three species the males are heavier than the females, by roughly `r round((min(ratio$r) - 1) * 100)`% to `r round((max(ratio$r) - 1) * 100)`%. The gap is widest in **`r big`** penguins. A typical female Gentoo is still heavier than a typical male Adelie or Chinstrap, so species differences are bigger than sex differences.
+
+# Did anything change over the years?
+
+```{r}
+#| label: tbl-year
+#| tbl-cap: "Penguins measured per year and species"
+penguins |> count(year, species) |>
+  pivot_wider(names_from = species, values_from = n) |>
+  kable(col.names = c("Year", "Adelie", "Chinstrap", "Gentoo"))
+```
+
+```{r}
+#| label: fig-year
+#| fig-cap: "Average body mass in each year, for each species"
+#| fig-height: 3.6
+peng |>
+  group_by(year, species) |>
+  summarise(mass = mean(body_mass_g), .groups = "drop") |>
+  ggplot(aes(factor(year), mass, colour = species, group = species)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.6) +
+  scale_colour_manual(values = sp_cols, name = NULL) +
+  labs(title = "Average body mass is broadly stable", x = "Year", y = "Mean body mass (g)")
+```
+
+The averages move up and down a little from year to year, but there is no consistent trend, and with only three years of data and a few dozen birds per group we should not read too much into the small changes.
+
+# Summary of findings
+
+::: callout-tip
+## Key takeaways
+
+1.  **Habitat:** Adelie penguins live on all three islands; Gentoo only on Biscoe and Chinstrap only on Dream.
+2.  **Size:** Gentoo penguins are the largest by a wide margin; Adelie and Chinstrap penguins weigh about the same.
+3.  **Shape:** Bill length and depth separate the three species into clear clusters.
+4.  **Flippers and mass:** Strongly related overall (r = `r r_all`).
+5.  **Sex:** Males are heavier in every species.
+6.  **Time:** No clear change across 2007 to 2009.
+:::
+
+::: callout-important
+## Limitations
+
+This is an observational data set from a single research station, so the results describe these birds and do not prove anything about all penguins. A few records have missing values, and with only three years of data we cannot say much about long-term change.
+:::
+
+# Reproducibility
+
+```{r}
+#| label: session
+sessionInfo()$R.version$version.string
+packageVersion("palmerpenguins")
+```
+
+This report was written in Quarto using R and the *palmerpenguins* data package (Horst, Hill & Gorman, 2020).
