@@ -1,0 +1,161 @@
+---
+title: "Outbreak Situation Report"
+org: "Federal Ministry of Health (SAMPLE)"
+outbreak: "Cholera"
+sitrep-no: "7"
+period: "7 Sep – 14 Nov 2026"
+country: "Sampleland"
+prepared-by: "Prepared by the Epidemiology Unit · SIMULATED DATA for demonstration"
+format:
+  typst:
+    template-partials:
+      - typst-template.typ
+      - typst-show.typ
+    fig-format: png
+    fig-dpi: 220
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  linelist: "data/linelist.csv"
+  population: "data/population.csv"
+---
+
+```{r setup}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+
+ll  <- read.csv(params$linelist, stringsAsFactors = FALSE)
+pop <- read.csv(params$population)
+ll$onset_date <- as.Date(ll$onset_date)
+
+brand  <- "#0B5D7A"
+accent <- "#C8442B"
+theme_set(theme_minimal(base_size = 9) +
+  theme(panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold", colour = brand),
+        legend.position = "top"))
+
+total   <- nrow(ll)
+deaths  <- sum(ll$outcome == "Died")
+cfr     <- deaths / total * 100
+conf    <- sum(ll$status == "Confirmed")
+last_wk <- max(ll$onset_date) - 6
+cases_last7 <- sum(ll$onset_date >= last_wk)
+cases_prev7 <- sum(ll$onset_date >= last_wk - 7 & ll$onset_date < last_wk)
+change  <- (cases_last7 - cases_prev7) / cases_prev7 * 100
+n_states <- n_distinct(ll$state)
+
+by_state <- ll |>
+  group_by(state) |>
+  summarise(cases = n(), confirmed = sum(status == "Confirmed"),
+            deaths = sum(outcome == "Died"), .groups = "drop") |>
+  left_join(pop, by = "state") |>
+  mutate(cfr = deaths / cases * 100,
+         ar  = cases / population * 100000) |>
+  arrange(desc(cases))
+top_state <- by_state$state[1]
+hi_cfr    <- by_state |> filter(cases >= 10) |> slice_max(cfr, n = 1)
+```
+
+```{r kpis}
+#| output: asis
+kpi <- function(v, l, col = "brand") sprintf('[#kpi("%s", "%s", color: %s)]', v, l, col)
+cat("```{=typst}\n#grid(columns: (1fr, 1fr, 1fr, 1fr), gutter: 8pt,\n",
+    kpi(format(total, big.mark = ","), "Total cases"), ",\n",
+    kpi(deaths, "Deaths", "accent"), ",\n",
+    kpi(sprintf("%.1f%%", cfr), "Case fatality ratio", "accent"), ",\n",
+    kpi(n_states, "States affected"), "\n)\n```\n", sep = "")
+```
+
+# Key messages
+
+- **`r total` cases** and **`r deaths` deaths** (CFR `r sprintf("%.1f", cfr)`%) have been reported across **`r n_states` states**; `r conf` (`r round(conf/total*100)`%) are laboratory-confirmed.
+- In the last 7 days (from `r format(last_wk, "%d %b")`), **`r cases_last7` new cases** were reported, `r if (change < 0) "a decrease" else "an increase"` of **`r abs(round(change))`%** on the previous 7 days (`r cases_prev7` cases).
+- **`r top_state`** accounts for the largest share of cases (`r round(by_state$cases[1]/total*100)`%). **`r hi_cfr$state`** has the highest CFR (`r sprintf("%.1f", hi_cfr$cfr)`%), `r if (hi_cfr$cfr > 1) "above" else "within"` the 1% target.
+
+# Epidemiological curve
+
+```{r curve}
+#| fig-width: 7
+#| fig-height: 2.2
+#| fig-cap: "Cases by date of symptom onset, with 7-day moving average."
+daily <- ll |> count(onset_date) |>
+  complete(onset_date = seq(min(onset_date), max(onset_date), by = "day"), fill = list(n = 0)) |>
+  mutate(ma7 = stats::filter(n, rep(1/7, 7), sides = 1) |> as.numeric())
+ggplot(daily, aes(onset_date)) +
+  geom_col(aes(y = n), fill = brand, alpha = 0.35, width = 1) +
+  geom_line(aes(y = ma7), colour = accent, linewidth = 0.9, na.rm = TRUE) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%d %b") +
+  labs(x = NULL, y = "Cases")
+```
+
+# Geographic distribution
+
+```{r state-table}
+#| tbl-cap: "Cases, deaths and attack rate by state."
+tab <- by_state |>
+  transmute(State = state,
+            Cases = cases, Confirmed = confirmed, Deaths = deaths,
+            `CFR (%)` = sprintf("%.1f", cfr),
+            `AR / 100,000` = sprintf("%.1f", ar))
+tot <- tibble(State = "**Total**", Cases = total, Confirmed = conf, Deaths = deaths,
+              `CFR (%)` = sprintf("%.1f", cfr),
+              `AR / 100,000` = sprintf("%.1f", total / sum(pop$population) * 1e5))
+knitr::kable(bind_rows(tab, tot), align = "lrrrrr")
+```
+
+```{r state-bar}
+#| fig-width: 7
+#| fig-height: 2.4
+#| fig-cap: "Attack rate per 100,000 population by state."
+ggplot(by_state, aes(reorder(state, ar), ar)) +
+  geom_col(fill = brand, width = 0.65) +
+  geom_text(aes(label = sprintf("%.1f", ar)), hjust = -0.15, size = 3) +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(x = NULL, y = "Attack rate per 100,000")
+```
+
+# Who is affected
+
+```{r age-sex}
+#| fig-width: 7
+#| fig-height: 2.5
+#| fig-cap: "Cases by age group and sex."
+ll |>
+  mutate(age_grp = cut(age, c(-1, 4, 14, 29, 44, 59, Inf),
+                       labels = c("0–4", "5–14", "15–29", "30–44", "45–59", "60+"))) |>
+  count(age_grp, sex) |>
+  ggplot(aes(age_grp, n, fill = sex)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.7) +
+  scale_fill_manual(values = c(Female = accent, Male = brand), name = NULL) +
+  labs(x = "Age group (years)", y = "Cases")
+```
+
+```{r outcome}
+#| tbl-cap: "Case outcomes."
+knitr::kable(ll |> count(Outcome = outcome, name = "Cases") |>
+  mutate(`%` = sprintf("%.1f", Cases / sum(Cases) * 100)), align = "lrr")
+```
+
+# Response and next steps
+
+## Priority actions
+- Intensify case management and ORS/IV fluid supply in **`r paste(unique(c(top_state, hi_cfr$state)), collapse = " and ")`**.
+- Strengthen WASH interventions and community health education in affected LGAs.
+- Improve confirmation: only `r round(conf/total*100)`% of cases are laboratory-confirmed.
+
+## Gaps and challenges
+- Delayed reporting from peripheral facilities.
+- Limited stock of oral cholera vaccine for reactive campaigns.
+
+::: {.callout-note}
+*Edit this section by hand each week; everything above updates automatically from `data/linelist.csv`.*
+:::
+
+# Data sources and notes
+
+Case data come from the national line list (suspected and confirmed cases by date of symptom onset). Attack rates use projected state populations. **All data in this sample are simulated and do not describe a real outbreak.**

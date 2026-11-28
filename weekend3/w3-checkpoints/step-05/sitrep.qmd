@@ -1,0 +1,23 @@
+---
+title: "Outbreak Situation Report"
+org: "Federal Ministry of Health (SAMPLE)"
+outbreak: "Cholera"
+sitrep-no: "7"
+period: "7 Sep – 14 Nov 2026"
+country: "Sampleland"
+prepared-by: "Prepared by the Epidemiology Unit · SIMULATED DATA for demonstration"
+format:
+  typst:
+    template-partials:
+      - typst-template.typ
+      - typst-show.typ
+    fig-format: png
+    fig-dpi: 220
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  linelist: "data/linelist.csv"
+  population: "data/population.csv"
+---
